@@ -1,25 +1,70 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research 1"
+author: "ecvizie"
+date: "March 20, 2016"
+output: html_document
 ---
 
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Assignment #1 - Reproducible Research
 ## Loading and preprocessing the data
+Data taken from <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip> on 03/20/2016. We'll use a set without NAs to start so I don't get a headache.
+```{r readdata}
+c <- read.csv('activity.csv')
+d <- na.omit(c) #Create a copy with omitted NAs
+d$date <- as.Date(d$date, '%Y-%m-%d') #Convert dates            
+agg <- aggregate(d$steps, list(d$date), FUN=sum) #Aggregate and return total steps per day
+hist(agg$x, main="Total # of Steps Taken Per Day", xlab="Steps Taken per Day")
+```
 
+##Calculate Summary Data for the Daily Data Set
+```{r calcAvgMed}
+summary(agg$x)
+```
 
+##Time series plot of the average number of steps taken
+```{r timeseries1}
+#Aggregate by interval across all days
+agginterval <- aggregate(d$steps, list(d$interval), FUN=mean)
+#Time series plot by interval
+plot(x ~ Group.1, agginterval, type = "l", 
+     main="Avg Steps Per Interval", xlab='Interval', ylab="Avg # of Steps")
+```
 
-## What is mean total number of steps taken per day?
+##The 5-minute interval that, on average, contains the maximum number of steps
+```{r maxinterval}
+maxint<- agginterval[agginterval$x==max(agginterval$x),]
+maxint$Group.1
+```
 
+##Code to describe and show a strategy for imputing missing data
+We will use the average for that interval to fill the missing data. We accomplish this by merging datasets based on the interval period and then setting the NAs to the constant value.
+```{r missingdata}
+#How many NAs do we have?
+length(c[is.na(c)])
+#use interval average to fill data
+merged <- merge(agginterval, c, by.x="Group.1", by.y = "interval")
+merged[is.na(merged$steps)==TRUE,]$steps <- merged[is.na(merged$steps)==TRUE,]$x
+merged$date <- as.Date(merged$date, '%Y-%m-%d')
+merged$dow <- weekdays(merged$date, abbreviate = TRUE)
+merged$wknd <- (merged$dow %in% c("Sat", "Sun"))
+aggm <- aggregate(merged$steps, list(merged$date), FUN=sum)
+summary(aggm$x)
+#Histogram of Filled Data
+hist(aggm$x, main="Total # of Steps Taken Per Day", xlab="Steps Taken per Day")
+```
 
+##Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+Group by the weekend feature and then by interval feature producing an average number of steps.
+```{r weekenddaycompare}
+aggminterval <- aggregate(merged$steps, list(merged$wknd, merged$Group.1), FUN=mean)
 
-## What is the average daily activity pattern?
+par(mfrow=c(2,1))
+plot(x ~ Group.2, aggminterval[aggminterval$Group.1==TRUE,], type = "l",
+     main="Steps taken per day (Weekend)", xlab="", ylab="# of Steps")
+plot(x ~ Group.2, aggminterval[aggminterval$Group.1==FALSE,], type = "l",
+     main="Steps taken per day (Weekday)", xlab="Interval",ylab="# of Steps")
 
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+```
